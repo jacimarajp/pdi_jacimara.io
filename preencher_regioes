@@ -1,0 +1,7 @@
+[.strong-text]
+
+Exercício sobre preenchimento de regiões
+Uma forma de resolver o problema de aparecer mais de 255 obejetos em uma imagem em forma de bolhas
+é amarrando os valor de preenchimento até 255 ou armazenando em outra matriz e aplicar depois, normalização.
+
+ 
