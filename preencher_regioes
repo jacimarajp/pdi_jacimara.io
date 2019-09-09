@@ -1,0 +1,111 @@
+[.strong-text]
+
+Exercício sobre preenchimento de regiões,
+Uma forma de resolver o problema de aparecer mais de 255 obejetos em uma imagem em forma de bolhas
+é amarrando os valor de preenchimento até 255 ou armazenando em outra matriz e aplicar depois, normalização.
+
+
+[.strong-text] 
+A seguir será apresentado o código para encontrar buracos em uma região, todo comentado
+
+
+[source,java]
+----
+#include <iostream>
+#include <opencv2/opencv.hpp>
+
+using namespace cv;
+
+int main(int argc, char** argv){
+  Mat image, mask;
+  int width, height;
+  //int nobjects;
+
+  CvPoint p;
+  image = imread(argv[1],CV_LOAD_IMAGE_GRAYSCALE);
+
+  if(!image.data){
+    std::cout << "imagem nao carregou corretamente\n";
+    return(-1);
+  }
+  width=image.size().width;
+  height=image.size().height;
+
+  p.x=0;
+  p.y=0;
+
+  // busca objetos com buracos presentes
+//  nobjects=0;
+  for(int i=0; i<height; i++){
+		for(int j=0; j<width; j++){
+			if(i==0 || j==0 || i==(height-1) || j==(width-1)){ 
+				if(image.at<uchar>(i,j) == 255){    //se o valor do pixel for 255 e se correspode a posições de bordas preencher com preto
+					p.x=j;
+					p.y=i;
+					floodFill(image,p,0);
+				}
+			}
+		}
+	}
+  
+  floodFill(image,p,70);   //todo plano de fundo vai para tonalidade 70 de cinza
+  
+  //mapeia toda região onde tem preto para vericar onde está as boradas brancas e preencher com preto
+   for(int i=0; i<height; i++){
+		for(int j=0; j<width; j++){
+			if(image.at<uchar>(i,j) == 0){   
+				if(image.at<uchar>(i+1,j)==255){
+					p.x=j;
+					p.y=i+1;
+					floodFill(image,p,0);
+				}
+				if(image.at<uchar>(i-1,j)==255){
+					p.x=j;
+					p.y=i-1;
+					floodFill(image,p,0);
+				}
+				if(image.at<uchar>(i,j+1)==255){
+					p.x=j+1;
+					p.y=i;
+					floodFill(image,p,0);
+				}
+				if(image.at<uchar>(i,j-1)==255){
+					p.x=j-1;
+					p.y=i;
+					floodFill(image,p,0);
+				}
+		    }
+        }
+    }
+  //todas os buracos pretos são preenchidos com tonalidade de valor 70
+    for(int i=0; i<height; i++){
+		for(int j=0; j<width; j++){
+				if(image.at<uchar>(i,j) == 0){    
+					p.x=j;
+					p.y=i;
+					floodFill(image,p,70);
+	            }
+        }
+    }
+  imshow("image", image);
+  imwrite("burados.png", image);
+  waitKey();
+  return 0;
+}
+
+----
+[.text-center]
+image::bolhas.png[]
+imagem original
+[.text-center]
+image::bordas.png[]
+Primeiro fez o preenchimento das bordas que tinham tonalidade de 255
+[.text-center]
+image::prencherfundo.png[]
+depois preencheu todo o fundo com tonalidade 70
+[.text-center]
+image::furospretos.png[]
+logo após, mapeiou-se toda a região onde tinha furo e passou tonalidade 0 para ela
+[.text-center]
+image::burados.png[]
+emfim, preencheu toda região em 0 de 70, achando os buracos
