@@ -1,0 +1,274 @@
+
+.Filtro Homomófico
+
+
+Os filtros homomóficos partem do pricípio que a imagem é em função da luminância e reflêctância: +
+ f(x,y)=I(x,y)r(x,y) +
+Como se quer amenizar os efeitos da iluminância, deve-se aplicar a função logaritmíca, que pela propriedade: +
+log(a*b)=loga+logb +
+poderá separá os os valores de luminância e reflectância. A seguir, será apresentado a sequência de passos para essa filtragem:
+
+[.text-center] 
+image::diagrama.png[] 
+Abaixo, será apresentado o código para a realização da filtragem:
+[source,java]
+----
+void deslocaDFT(Mat& image ){
+  Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para
+  // evitar cópias de tamanho desigual
+  image = image(Rect(0, 0, image.cols & -2, image.rows & -2));
+  int cx = image.cols/2;
+  int cy = image.rows/2;
+
+  // reorganiza os quadrantes da transformada
+  // A B   ->  D C
+  // C D       B A
+  A = image(Rect(0, 0, cx, cy));
+  B = image(Rect(cx, 0, cx, cy));
+  C = image(Rect(0, cy, cx, cy));
+  D = image(Rect(cx, cy, cx, cy));
+
+  // A <-> D
+  A.copyTo(tmp);  D.copyTo(A);  tmp.copyTo(D);
+
+  // C <-> B
+  C.copyTo(tmp);  B.copyTo(C);  tmp.copyTo(B);
+}
+----
+
+Esse trecho de código, realiza a troca de quadrantes da imagem, para o cáculo da DFT.
+
+[source,java]
+----
+
+dft_M = getOptimalDFTSize(image.rows);
+dft_N = getOptimalDFTSize(image.cols);
+
+ // realiza o padding da imagem
+ copyMakeBorder(image, padded, 0,
+                   dft_M - image.rows, 0,
+                   dft_N - image.cols,
+                   BORDER_CONSTANT, Scalar::all(0));
+
+
+----
+Obtem o tamanho ideal, para o cálculo da DFT e cria uma matriz que recebe a imagem e preenche com zeros os espaçõs que restam para o cálculo da DFT.
+[source,java]
+----
+  // componente real da matriz onde calcula o log
+    realInput = Mat_<float>(padded);
+
+    for(int i=0; i<dft_M; i++){
+      for(int j=0; j<dft_N; j++){
+
+        realInput.at<float>(i,j) = log(realInput.at<float>(i,j)+1);
+
+      }
+    }
+----
+Cálcula o log da parte real da imagem.
+
+[source,java]
+----
+
+    cout << "digite um valor para gl \n";
+    cin >> gl;
+    cout << "digite um valor para gh \n";
+    cin >> gh;
+    cout << "digite um valor para d0 \n";
+    cin >> d0;
+    cout << "digite um valor para c \n";
+    cin >> c;
+
+  for(int i=0; i<dft_M; i++){
+    for(int j=0; j<dft_N; j++){
+      tmp.at<float> (i,j) = (gh - gl)*(1 - exp(-c*(( (i-dft_M/2)*(i-dft_M/2) + (j-dft_N/2)*(j-dft_N/2) ) / (d0*d0) ))) + gl;
+    }
+  }
+
+----
+
+Prepara o filtro homomófico, onde os parâmetros gh,gl,d0,c, iram definir como irá resultar a imagem final;
+
+[source,java]
+----
+ // normaliza para poder calcular a exponenical
+    normalize(planos[0], planos[0], 0, 1, CV_MINMAX);
+    exp(planos[0],planos[0]);
+    // normaliza para a exibicao da imagem
+    normalize(planos[0], planos[0], 0, 1, CV_MINMAX);
+----
+Aqui ah a nomalização para o cálculo da exponencial + 
+aseguir todo o código:
+[source,java]
+----
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <cv.h>
+#include <highgui.h>
+#include <tgmath.h>
+
+#define RADIUS 20
+using namespace cv;
+using namespace std;
+
+char key;
+int gh=60,gl=5,d0=20,c=5;
+void deslocaDFT(Mat& image ){
+  Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para
+  // evitar cópias de tamanho desigual
+  image = image(Rect(0, 0, image.cols & -2, image.rows & -2));
+  int cx = image.cols/2;
+  int cy = image.rows/2;
+
+  // reorganiza os quadrantes da transformada
+  // A B   ->  D C
+  // C D       B A
+  A = image(Rect(0, 0, cx, cy));
+  B = image(Rect(cx, 0, cx, cy));
+  C = image(Rect(0, cy, cx, cy));
+  D = image(Rect(cx, cy, cx, cy));
+
+  // A <-> D
+  A.copyTo(tmp);  D.copyTo(A);  tmp.copyTo(D);
+
+  // C <-> B
+  C.copyTo(tmp);  B.copyTo(C);  tmp.copyTo(B);
+}
+
+
+int main(int argvc, char** argv){
+
+ 
+  Mat imaginaryInput, complexImage, complexImage2;
+  Mat padded;
+  Mat image;
+  Mat_<float> realInput, zeros;
+
+  int dft_M, dft_N;
+  Mat filter, tmp;
+  vector<Mat> planos;
+
+
+  image= imread("corredor.jpeg",CV_LOAD_IMAGE_GRAYSCALE);
+	
+    dft_M = getOptimalDFTSize(image.rows);
+    dft_N = getOptimalDFTSize(image.cols);
+
+    // realiza o padding da imagem
+    copyMakeBorder(image, padded, 0,
+                   dft_M - image.rows, 0,
+                   dft_N - image.cols,
+                   BORDER_CONSTANT, Scalar::all(0));
+
+    // prepara a matriz complexa para ser preenchida
+    
+    complexImage = Mat(padded.size(), CV_32FC2, Scalar(0));
+
+    // componente real da matriz onde calcula o log
+    realInput = Mat_<float>(padded);
+
+    for(int i=0; i<dft_M; i++){
+      for(int j=0; j<dft_N; j++){
+
+        realInput.at<float>(i,j) = log(realInput.at<float>(i,j)+1);
+
+      }
+    }
+
+    // parte imaginaria da matriz complexa (preenchida com zeros)
+    zeros = Mat_<float>::zeros(padded.size());
+    
+    planos.push_back(realInput);
+    planos.push_back(zeros);
+
+    // combinar componentes da imagem
+    merge(planos, complexImage);
+
+ 
+
+    planos.clear();
+    complexImage2 = complexImage.clone();
+
+    // preparar filtro
+    filter = complexImage2.clone();
+
+    // cria uma matriz temporária para criar as componentes real
+    // e imaginaria do filtro ideal
+    tmp = Mat(dft_M, dft_N, CV_32F);
+	
+  // prepara o filtro
+  
+    cout << "digite um valor para gl \n";
+    cin >> gl;
+    cout << "digite um valor para gh \n";
+    cin >> gh;
+    cout << "digite um valor para d0 \n";
+    cin >> d0;
+    cout << "digite um valor para c \n";
+    cin >> c;
+
+  for(int i=0; i<dft_M; i++){
+    for(int j=0; j<dft_N; j++){
+      tmp.at<float> (i,j) = (gh - gl)*(1 - exp(-c*(( (i-dft_M/2)*(i-dft_M/2) + (j-dft_N/2)*(j-dft_N/2) ) / (d0*d0) ))) + gl;
+    }
+  }
+
+    // cria a matriz com as componentes do filtro e junta
+    // ambas em uma matriz multicanal complexa
+    Mat comps[]= {tmp, tmp};
+    merge(comps, 2, filter);
+
+    // calcula o dft
+    dft(complexImage2, complexImage2);
+
+    // realiza a troca de quadrantes
+    deslocaDFT(complexImage2);
+
+    // aplica o filtro frequencial
+    mulSpectrums(complexImage2,filter,complexImage2,0);
+
+    // troca novamente os quadrantes
+    deslocaDFT(complexImage2);
+
+    // calcula a DFT inversa
+    idft(complexImage2, complexImage2);
+
+    // limpa o array de planos
+    planos.clear();
+
+    // separa as partes real e imaginaria da
+    // imagem filtrada
+    split(complexImage2, planos);
+
+    // normaliza para poder calcular a exponenical
+    normalize(planos[0], planos[0], 0, 1, CV_MINMAX);
+    exp(planos[0],planos[0]);
+    // normaliza para a exibicao da imagem
+    normalize(planos[0], planos[0], 0, 1, CV_MINMAX);
+
+    imshow("homomorphico", planos[0]);
+    imshow("com luminância",image);
+    imwrite("parametros2.jpeg",planos[0]);
+
+	 waitKey(0);
+	
+}
+----
+ 
+imagem inicial:
+[.text-center] 
+image::corredor.jpeg[] 
+[.text-left] 
+Exemplos de imagens, obtidas com o filtro para diferentes valores de gl, gh, c e d:  +
+[.text-center] 
+image::imagem1.png[] 
+[.text-center] 
+image::imagem2.png[] 
+[.text-center] 
+image::imagem3.png[] 
+
