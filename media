@@ -1,0 +1,79 @@
+. algoritmo das K_medias 
+
+O objetivo desse exemplo é implementar um algoritmo das K_médias, utilizando na função kmeans o parâmetro, KMEANS_RANDOM_CENTERS ao invés de KMEANS_PP_CENTERS, esse novo parâmetro irá inicializar os centros de forma aleatória. Téoricamente, as imagens deveriam ser diferentes, porém como o parâmetro nrodada = 1, isso não acontece. +
+
+O código está apresentadp a mseguir:
+
+[source,java]
+----
+#include <opencv2/opencv.hpp>
+#include <cstdlib>
+
+using namespace cv;
+
+int main( int argc, char** argv ){
+ 
+
+ int nClusters = 5;
+  Mat rotulos;
+  int nRodadas = 1;
+  Mat centros;
+
+ 
+
+  Mat img = imread("imagem.png", CV_LOAD_IMAGE_COLOR);
+  Mat samples(img.rows * img.cols, 3, CV_32F);
+
+  for( int y = 0; y < img.rows; y++ ){
+    for( int x = 0; x < img.cols; x++ ){
+      for( int z = 0; z < 3; z++){
+        samples.at<float>(y + x*img.rows, z) = img.at<Vec3b>(y,x)[z];
+	  }
+	}
+  }
+
+  kmeans(samples,
+		 nClusters,
+		 rotulos,
+		 TermCriteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 10000, 0.0001),
+		 nRodadas,
+		 KMEANS_RANDOM_CENTERS,
+		 centros );
+
+
+  Mat rotulada(img.size(), img.type());
+  for(int y = 0; y < img.rows; y++){
+    for(int x = 0; x < img.cols; x++){
+	  int indice = rotulos.at<int>(y + x*img.rows,0);
+	  rotulada.at<Vec3b>(y,x)[0] = (uchar) centros.at<float>(indice, 0);
+	  rotulada.at<Vec3b>(y,x)[1] = (uchar) centros.at<float>(indice, 1);
+	  rotulada.at<Vec3b>(y,x)[2] = (uchar) centros.at<float>(indice, 2);
+	}
+  }
+  imshow("clustered image",rotulada);
+  imwrite("c.png",rotulada);
+  waitKey(0);
+
+}
+----
+O resultado obtido foram os seguintes:
+[.text-center]
+image:imagem.png[]
+[.text-center]
+imagem original
+[.text-center] 
+image:c.png[]
+[.text-center]
+Primeira interação
+[.text-center]
+image:c1.png[]
+[.text-center]
+Segunda interação
+[.text-center]
+image:c2.png[]
+[.text-center]
+terceira interação
+
+
+Como se pode observar, não ouve mudança notável nas imagens das diferentes interações.
+
